@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../data/services/auto_scan_permission_service.dart';
 import '../../data/services/ocr_service.dart';
 import '../../domain/entities/trip_calculation_result.dart';
 import '../../domain/entities/trip_request_data.dart';
@@ -22,6 +23,8 @@ class TripCalculatorState {
     this.tripData,
     this.calculationResult,
     this.errorMessage,
+    this.isAutoPopupEnabled = false,
+    this.isAutoScanActive = true,
   });
 
   final File? selectedImageFile;
@@ -30,6 +33,8 @@ class TripCalculatorState {
   final TripRequestData? tripData;
   final TripCalculationResult? calculationResult;
   final String? errorMessage;
+  final bool isAutoPopupEnabled;
+  final bool isAutoScanActive;
 
   double? get fareAmount => tripData?.fareAmount;
   double? get pickupDistance => tripData?.pickupDistance;
@@ -45,6 +50,8 @@ class TripCalculatorState {
     TripRequestData? tripData,
     TripCalculationResult? calculationResult,
     String? errorMessage,
+    bool? isAutoPopupEnabled,
+    bool? isAutoScanActive,
     bool clearScanData = false,
     bool clearError = false,
   }) {
@@ -57,12 +64,16 @@ class TripCalculatorState {
           ? null
           : calculationResult ?? this.calculationResult,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
+      isAutoPopupEnabled: isAutoPopupEnabled ?? this.isAutoPopupEnabled,
+      isAutoScanActive: isAutoScanActive ?? this.isAutoScanActive,
     );
   }
 }
 
 class TripCalculatorNotifier extends Notifier<TripCalculatorState> {
   final ImagePicker _imagePicker = ImagePicker();
+  final AutoScanPermissionService _autoScanPermissionService =
+      AutoScanPermissionService();
   final OcrService _ocrService = OcrService();
   final ExtractTripDataUseCase _extractTripDataUseCase =
       ExtractTripDataUseCase();
@@ -70,7 +81,26 @@ class TripCalculatorNotifier extends Notifier<TripCalculatorState> {
 
   @override
   TripCalculatorState build() {
+    Future.microtask(refreshAutoPopupStatus);
     return const TripCalculatorState();
+  }
+
+  Future<void> openAutoPopupSettings() async {
+    await _autoScanPermissionService.openAccessibilitySettings();
+  }
+
+  Future<void> refreshAutoPopupStatus() async {
+    final isEnabled = await _autoScanPermissionService.isAccessibilityEnabled();
+    final isActive = await _autoScanPermissionService.isAutoScanActive();
+    state = state.copyWith(
+      isAutoPopupEnabled: isEnabled,
+      isAutoScanActive: isActive,
+    );
+  }
+
+  Future<void> setAutoScanActive(bool isActive) async {
+    await _autoScanPermissionService.setAutoScanActive(isActive);
+    state = state.copyWith(isAutoScanActive: isActive);
   }
 
   Future<void> selectScreenshot() async {

@@ -27,6 +27,74 @@ class TripCalculatorScreen extends ConsumerWidget {
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            state.isAutoPopupEnabled
+                                ? Icons.check_circle
+                                : Icons.pending_actions,
+                            color: state.isAutoPopupEnabled
+                                ? Colors.green
+                                : Theme.of(context).colorScheme.primary,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Auto Popup Scanner',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        state.isAutoPopupEnabled
+                            ? state.isAutoScanActive
+                                  ? 'Enabled. Open PickMe Driver and keep the hire card visible. The per-km popup will appear automatically when fare and km values are detected.'
+                                  : 'Accessibility is enabled, but auto screen reading is currently turned off.'
+                            : 'Enable Accessibility once. This app only reads visible screen text/OCR and shows the per-km overlay; it does not control PickMe Driver.',
+                      ),
+                      const SizedBox(height: 14),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Auto screen read'),
+                        subtitle: const Text('Show per-km popup automatically'),
+                        value:
+                            state.isAutoPopupEnabled && state.isAutoScanActive,
+                        onChanged: state.isAutoPopupEnabled
+                            ? notifier.setAutoScanActive
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: notifier.openAutoPopupSettings,
+                              icon: const Icon(Icons.settings_accessibility),
+                              label: const Text('Enable Auto Popup'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          IconButton.filledTonal(
+                            onPressed: notifier.refreshAutoPopupStatus,
+                            icon: const Icon(Icons.refresh),
+                            tooltip: 'Refresh status',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Row(
                     children: [
                       Expanded(

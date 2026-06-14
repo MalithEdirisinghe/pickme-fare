@@ -29,4 +29,20 @@ void main() {
     expect(tripData.tripDistance, 2.34);
     expect(tripData.warningMessage, isNotNull);
   });
+
+  test('extracts fare amount with thousands separator', () {
+    const text = '''
+1,221.14LKR
+0 (3mins away, 0.8 km)
+34 min, 19.84 km)
+''';
+
+    final tripData = ExtractTripDataUseCase().call(text);
+    final result = CalculatePerKmUseCase().call(tripData);
+
+    expect(tripData.fareAmount, 1221.14);
+    expect(tripData.pickupDistance, 0.8);
+    expect(tripData.tripDistance, 19.84);
+    expect(result.perKmPrice.toStringAsFixed(2), '59.16');
+  });
 }
