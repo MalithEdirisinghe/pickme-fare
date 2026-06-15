@@ -4,8 +4,9 @@ import '../entities/trip_request_data.dart';
 
 class ExtractTripDataUseCase {
   TripRequestData call(String text) {
-    final fareAmount = _extractFare(text);
-    final distances = _extractDistances(text);
+    final cleanedText = _cleanOverlayText(text);
+    final fareAmount = _extractFare(cleanedText);
+    final distances = _extractDistances(cleanedText);
 
     if (fareAmount == null) {
       throw const FormatException('Fare amount could not be detected.');
@@ -24,6 +25,14 @@ class ExtractTripDataUseCase {
           ? 'More than two km values were detected. Using the first two.'
           : null,
     );
+  }
+
+  String _cleanOverlayText(String text) {
+    var cleaned = text;
+    cleaned = cleaned.replaceAll(RegExp(r'[\d.,]+\s*LKR/km', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'Fare\s+[\d.,]+\s*LKR\s*\|\s*Distance\s+[\d.,]+\s*km', caseSensitive: false), '');
+    cleaned = cleaned.replaceAll(RegExp(r'Using first two km values', caseSensitive: false), '');
+    return cleaned;
   }
 
   double? _extractFare(String text) {

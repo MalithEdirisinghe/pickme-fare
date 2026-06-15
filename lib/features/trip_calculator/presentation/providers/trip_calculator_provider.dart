@@ -25,6 +25,8 @@ class TripCalculatorState {
     this.errorMessage,
     this.isAutoPopupEnabled = false,
     this.isAutoScanActive = true,
+    this.lowThreshold = 50.0,
+    this.highThreshold = 100.0,
   });
 
   final File? selectedImageFile;
@@ -35,6 +37,8 @@ class TripCalculatorState {
   final String? errorMessage;
   final bool isAutoPopupEnabled;
   final bool isAutoScanActive;
+  final double lowThreshold;
+  final double highThreshold;
 
   double? get fareAmount => tripData?.fareAmount;
   double? get pickupDistance => tripData?.pickupDistance;
@@ -52,6 +56,8 @@ class TripCalculatorState {
     String? errorMessage,
     bool? isAutoPopupEnabled,
     bool? isAutoScanActive,
+    double? lowThreshold,
+    double? highThreshold,
     bool clearScanData = false,
     bool clearError = false,
   }) {
@@ -66,6 +72,8 @@ class TripCalculatorState {
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       isAutoPopupEnabled: isAutoPopupEnabled ?? this.isAutoPopupEnabled,
       isAutoScanActive: isAutoScanActive ?? this.isAutoScanActive,
+      lowThreshold: lowThreshold ?? this.lowThreshold,
+      highThreshold: highThreshold ?? this.highThreshold,
     );
   }
 }
@@ -81,7 +89,10 @@ class TripCalculatorNotifier extends Notifier<TripCalculatorState> {
 
   @override
   TripCalculatorState build() {
-    Future.microtask(refreshAutoPopupStatus);
+    Future.microtask(() {
+      refreshAutoPopupStatus();
+      refreshThresholds();
+    });
     return const TripCalculatorState();
   }
 
@@ -103,13 +114,33 @@ class TripCalculatorNotifier extends Notifier<TripCalculatorState> {
     state = state.copyWith(isAutoScanActive: isActive);
   }
 
+  Future<void> refreshThresholds() async {
+    final thresholds = await _autoScanPermissionService.getThresholds();
+    state = state.copyWith(
+      lowThreshold: thresholds['low'],
+      highThreshold: thresholds['high'],
+    );
+  }
+
+  Future<void> updateThresholds(double low, double high) async {
+    await _autoScanPermissionService.setThresholds(low, high);
+    state = state.copyWith(
+      lowThreshold: low,
+      highThreshold: high,
+    );
+  }
+
   Future<void> selectScreenshot() async {
     final image = await _imagePicker.pickImage(source: ImageSource.gallery);
     if (image == null) {
       return;
     }
 
-    state = TripCalculatorState(selectedImageFile: File(image.path));
+    state = state.copyWith(
+      selectedImageFile: File(image.path),
+      clearScanData: true,
+      clearError: true,
+    );
   }
 
   Future<void> scanSelectedScreenshot() async {

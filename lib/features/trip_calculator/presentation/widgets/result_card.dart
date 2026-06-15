@@ -27,7 +27,13 @@ class ResultCard extends StatelessWidget {
                   : '${NumberFormatter.twoDecimals(state.perKmPrice!)} LKR/km',
               style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                 fontWeight: FontWeight.w800,
-                color: Theme.of(context).colorScheme.primary,
+                color: state.perKmPrice == null
+                    ? Theme.of(context).colorScheme.primary
+                    : state.perKmPrice! < state.lowThreshold
+                        ? Colors.red.shade600
+                        : state.perKmPrice! >= state.highThreshold
+                            ? Colors.green.shade600
+                            : Colors.orange.shade700,
               ),
             ),
             const Divider(height: 28),

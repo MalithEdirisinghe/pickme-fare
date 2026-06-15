@@ -92,6 +92,8 @@ class TripCalculatorScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
+              const ThresholdSettingsCard(),
+              const SizedBox(height: 16),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -199,6 +201,134 @@ class _MessageCard extends StatelessWidget {
             Icon(icon),
             const SizedBox(width: 12),
             Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ThresholdSettingsCard extends ConsumerStatefulWidget {
+  const ThresholdSettingsCard({super.key});
+
+  @override
+  ConsumerState<ThresholdSettingsCard> createState() => _ThresholdSettingsCardState();
+}
+
+class _ThresholdSettingsCardState extends ConsumerState<ThresholdSettingsCard> {
+  late final TextEditingController _lowController;
+  late final TextEditingController _highController;
+
+  @override
+  void initState() {
+    super.initState();
+    final state = ref.read(tripCalculatorProvider);
+    _lowController = TextEditingController(text: state.lowThreshold.toStringAsFixed(0));
+    _highController = TextEditingController(text: state.highThreshold.toStringAsFixed(0));
+  }
+
+  @override
+  void dispose() {
+    _lowController.dispose();
+    _highController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final low = double.tryParse(_lowController.text) ?? 50.0;
+    final high = double.tryParse(_highController.text) ?? 100.0;
+    ref.read(tripCalculatorProvider.notifier).updateThresholds(low, high);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Threshold settings saved successfully / සීමාවන් සාර්ථකව සුරැකිණි'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<TripCalculatorState>(tripCalculatorProvider, (previous, next) {
+      if (previous == null || previous.lowThreshold != next.lowThreshold) {
+        _lowController.text = next.lowThreshold.toStringAsFixed(0);
+      }
+      if (previous == null || previous.highThreshold != next.highThreshold) {
+        _highController.text = next.highThreshold.toStringAsFixed(0);
+      }
+    });
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.color_lens,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Fare Threshold Settings',
+                    style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'සවාරි ගාස්තු වර්ණ සීමාවන් සකසන්න (LKR/km)',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _lowController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'Low / අඩු සීමාව',
+                      suffixText: 'LKR',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.arrow_downward, color: Colors.red),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextField(
+                    controller: _highController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: 'High / වැඩි සීමාව',
+                      suffixText: 'LKR',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      prefixIcon: const Icon(Icons.arrow_upward, color: Colors.green),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _save,
+                icon: const Icon(Icons.save),
+                label: const Text('Save Settings / සුරකින්න'),
+              ),
+            ),
           ],
         ),
       ),

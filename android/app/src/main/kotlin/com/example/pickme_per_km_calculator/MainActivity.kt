@@ -31,6 +31,22 @@ class MainActivity : FlutterActivity() {
                         .apply()
                     result.success(null)
                 }
+                "getThresholds" -> {
+                    val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+                    val low = prefs.getFloat("low_threshold", 50f)
+                    val high = prefs.getFloat("high_threshold", 100f)
+                    result.success(mapOf("low" to low.toDouble(), "high" to high.toDouble()))
+                }
+                "setThresholds" -> {
+                    val low = call.argument<Double>("low") ?: 50.0
+                    val high = call.argument<Double>("high") ?: 100.0
+                    getSharedPreferences(prefsName, MODE_PRIVATE)
+                        .edit()
+                        .putFloat("low_threshold", low.toFloat())
+                        .putFloat("high_threshold", high.toFloat())
+                        .apply()
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

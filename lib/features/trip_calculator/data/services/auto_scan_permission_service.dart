@@ -26,4 +26,20 @@ class AutoScanPermissionService {
       'isActive': isActive,
     });
   }
+
+  Future<Map<String, double>> getThresholds() async {
+    final Map? result = await _channel.invokeMethod<Map>('getThresholds');
+    if (result == null) return {'low': 50.0, 'high': 100.0};
+    return {
+      'low': (result['low'] as num).toDouble(),
+      'high': (result['high'] as num).toDouble(),
+    };
+  }
+
+  Future<void> setThresholds(double low, double high) async {
+    await _channel.invokeMethod<void>('setThresholds', {
+      'low': low,
+      'high': high,
+    });
+  }
 }

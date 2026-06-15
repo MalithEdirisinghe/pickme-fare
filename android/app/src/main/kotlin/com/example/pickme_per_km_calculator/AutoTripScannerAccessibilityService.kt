@@ -40,6 +40,7 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
     private var lastScanAt = 0L
     private var lastResultSignature = ""
     private var scanScheduled = false
+    private var lastLayoutExtractionTime = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -101,7 +102,8 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
         }
 
         val visibleText = collectVisibleText(rootInActiveWindow)
-        if (tryShowResultFromText(visibleText)) {
+        val captureTime = System.currentTimeMillis()
+        if (tryShowResultFromText(visibleText, isFromScreenshot = false, timestamp = captureTime)) {
             return
         }
 
@@ -129,7 +131,11 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
                         recognizer.process(image)
                             .addOnSuccessListener { recognizedText ->
                                 softwareBitmap.recycle()
-                                tryShowResultFromText(recognizedText.text)
+                                tryShowResultFromText(
+                                    recognizedText.text,
+                                    isFromScreenshot = true,
+                                    timestamp = captureTime
+                                )
                             }
                             .addOnFailureListener {
                                 softwareBitmap.recycle()
@@ -172,9 +178,13 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun tryShowResultFromText(text: String): Boolean {
+    private fun tryShowResultFromText(text: String, isFromScreenshot: Boolean, timestamp: Long): Boolean {
         if (!isAutoScanActive()) {
             hideOverlay()
+            return false
+        }
+
+        if (isFromScreenshot && timestamp <= lastLayoutExtractionTime) {
             return false
         }
 
@@ -185,6 +195,14 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
         }
 
         val perKmPrice = tripData.fareAmount / totalDistance
+        if (perKmPrice < MIN_REALISTIC_PRICE_PER_KM || perKmPrice > MAX_REALISTIC_PRICE_PER_KM) {
+            return false
+        }
+
+        if (!isFromScreenshot) {
+            lastLayoutExtractionTime = timestamp
+        }
+
         val signature = "${tripData.fareAmount}-${tripData.pickupDistance}-${tripData.tripDistance}"
         if (signature == lastResultSignature) {
             return true
@@ -202,10 +220,19 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
         return true
     }
 
+    private fun cleanOverlayText(text: String): String {
+        var cleaned = text
+        cleaned = OVERLAY_PRICE_REGEX.replace(cleaned, "")
+        cleaned = OVERLAY_DETAILS_REGEX.replace(cleaned, "")
+        cleaned = OVERLAY_WARNING_REGEX.replace(cleaned, "")
+        return cleaned
+    }
+
     private fun extractTripData(text: String): NativeTripData? {
-        val fareMatch = FARE_REGEX.find(text) ?: return null
+        val cleanedText = cleanOverlayText(text)
+        val fareMatch = FARE_REGEX.find(cleanedText) ?: return null
         val fareAmount = parseOcrNumber(fareMatch.groupValues[1]) ?: return null
-        val distances = DISTANCE_REGEX.findAll(text)
+        val distances = DISTANCE_REGEX.findAll(cleanedText)
             .mapNotNull { match -> parseOcrNumber(match.groupValues[1]) }
             .toList()
 
@@ -240,10 +267,19 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
             }
         }
 
+        val lowThreshold = preferences?.getFloat("low_threshold", 50f) ?: 50f
+        val highThreshold = preferences?.getFloat("high_threshold", 100f) ?: 100f
+
+        val priceColor = when {
+            perKmPrice < lowThreshold -> Color.rgb(239, 83, 80) // Red
+            perKmPrice >= highThreshold -> Color.rgb(102, 187, 106) // Green
+            else -> Color.rgb(255, 167, 38) // Orange
+        }
+
         val priceText = TextView(this).apply {
             text = "${format(perKmPrice)} LKR/km"
             textSize = 30f
-            setTextColor(Color.WHITE)
+            setTextColor(priceColor)
             gravity = Gravity.CENTER
             typeface = android.graphics.Typeface.DEFAULT_BOLD
         }
@@ -319,6 +355,8 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
         const val OVERLAY_VISIBLE_MS = 6500L
         const val PREFS_NAME = "auto_scan_prefs"
         const val AUTO_SCAN_ACTIVE_KEY = "auto_scan_active"
+        const val MIN_REALISTIC_PRICE_PER_KM = 30.0
+        const val MAX_REALISTIC_PRICE_PER_KM = 600.0
         val FARE_REGEX = Regex(
             """((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?|\d+(?:,\d+)?)\s*(?:lkr|rs\.?)""",
             RegexOption.IGNORE_CASE,
@@ -328,5 +366,8 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
             RegexOption.IGNORE_CASE,
         )
         val THOUSANDS_ONLY_REGEX = Regex("""^\d{1,3}(?:,\d{3})+$""")
+        val OVERLAY_PRICE_REGEX = Regex("""[\d.,]+\s*LKR/km""", RegexOption.IGNORE_CASE)
+        val OVERLAY_DETAILS_REGEX = Regex("""Fare\s+[\d.,]+\s*LKR\s*\|\s*Distance\s+[\d.,]+\s*km""", RegexOption.IGNORE_CASE)
+        val OVERLAY_WARNING_REGEX = Regex("""Using first two km values""", RegexOption.IGNORE_CASE)
     }
 }
