@@ -15,7 +15,7 @@ class TripCalculatorScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PickMe Per KM Calculator'),
+        title: const Text('FareRate'),
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
       body: SafeArea(

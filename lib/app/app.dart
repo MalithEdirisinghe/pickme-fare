@@ -9,7 +9,7 @@ class PickMePerKmCalculatorApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'PickMe Per KM Calculator',
+      title: 'FareRate',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFFF5B400),
