@@ -41,6 +41,8 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
     private var lastResultSignature = ""
     private var scanScheduled = false
     private var lastLayoutExtractionTime = 0L
+    private var lastScannedTrip: NativeTripData? = null
+    private var lastScannedTripTime = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -52,6 +54,10 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val eventType = event?.eventType ?: return
+        if (eventType == AccessibilityEvent.TYPE_VIEW_CLICKED) {
+            handleViewClicked(event)
+            return
+        }
         if (eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
         ) {
@@ -189,6 +195,11 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
         }
 
         val tripData = extractTripData(text) ?: return false
+
+        // Cache the scanned trip data for auto-saving
+        lastScannedTrip = tripData
+        lastScannedTripTime = System.currentTimeMillis()
+
         val totalDistance = tripData.pickupDistance + tripData.tripDistance
         if (totalDistance <= 0.0) {
             return false
@@ -321,6 +332,72 @@ class AutoTripScannerAccessibilityService : AccessibilityService() {
         val view = overlayView ?: return
         windowManager?.removeView(view)
         overlayView = null
+    }
+
+    private fun handleViewClicked(event: AccessibilityEvent) {
+        if (!isAutoSaveEnabled()) return
+        val trip = lastScannedTrip ?: return
+        val now = System.currentTimeMillis()
+        if (now - lastScannedTripTime > 15000) {
+            return // Scanned too long ago (more than 15 seconds)
+        }
+
+        val source = event.source
+        // Check if click happened on a node containing the accept text, OR check the active window
+        if ((source != null && hasAcceptText(source)) || hasAcceptText(rootInActiveWindow)) {
+            saveTrip(trip)
+            lastScannedTrip = null // Prevent double saving
+        }
+        source?.recycle()
+    }
+
+    private fun hasAcceptText(node: AccessibilityNodeInfo?): Boolean {
+        if (node == null) return false
+        val text = node.text?.toString() ?: ""
+        val desc = node.contentDescription?.toString() ?: ""
+        if (text.contains("පිළිගැනීමට", ignoreCase = true) ||
+            text.contains("පිළිගන්න", ignoreCase = true) ||
+            text.contains("Accept", ignoreCase = true) ||
+            desc.contains("පිළිගැනීමට", ignoreCase = true) ||
+            desc.contains("පිළිගන්න", ignoreCase = true) ||
+            desc.contains("Accept", ignoreCase = true)
+        ) {
+            return true
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            if (hasAcceptText(child)) {
+                child?.recycle()
+                return true
+            }
+            child?.recycle()
+        }
+        return false
+    }
+
+    private fun saveTrip(trip: NativeTripData) {
+        val prefs = preferences ?: return
+        val tripsString = prefs.getString("saved_trips_list", "") ?: ""
+        val tripsList = if (tripsString.isEmpty()) {
+            mutableListOf<String>()
+        } else {
+            tripsString.split("|||").toMutableList()
+        }
+
+        val totalDistance = trip.pickupDistance + trip.tripDistance
+        val perKmPrice = if (totalDistance > 0) trip.fareAmount / totalDistance else 0.0
+        val timestamp = System.currentTimeMillis()
+
+        // Manual JSON format
+        val json = """{"fareAmount":${trip.fareAmount},"pickupDistance":${trip.pickupDistance},"tripDistance":${trip.tripDistance},"totalDistance":$totalDistance,"perKmPrice":$perKmPrice,"timestamp":$timestamp}"""
+
+        tripsList.add(0, json) // Insert at top
+        val joined = tripsList.joinToString("|||")
+        prefs.edit().putString("saved_trips_list", joined).apply()
+    }
+
+    private fun isAutoSaveEnabled(): Boolean {
+        return preferences?.getBoolean("auto_save_enabled", false) ?: false
     }
 
     private fun format(value: Double): String {

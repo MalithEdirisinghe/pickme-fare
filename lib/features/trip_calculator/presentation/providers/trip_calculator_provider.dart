@@ -16,7 +16,9 @@ final tripCalculatorProvider =
     );
 
 class TripCalculatorState {
-  const TripCalculatorState({
+  static String initialLanguage = 'si';
+
+  TripCalculatorState({
     this.selectedImageFile,
     this.isScanning = false,
     this.rawOcrText,
@@ -27,7 +29,10 @@ class TripCalculatorState {
     this.isAutoScanActive = true,
     this.lowThreshold = 50.0,
     this.highThreshold = 100.0,
-  });
+    this.isAutoSaveEnabled = false,
+    this.savedTrips = const [],
+    String? languageCode,
+  }) : languageCode = languageCode ?? initialLanguage;
 
   final File? selectedImageFile;
   final bool isScanning;
@@ -39,6 +44,9 @@ class TripCalculatorState {
   final bool isAutoScanActive;
   final double lowThreshold;
   final double highThreshold;
+  final bool isAutoSaveEnabled;
+  final List<String> savedTrips;
+  final String languageCode;
 
   double? get fareAmount => tripData?.fareAmount;
   double? get pickupDistance => tripData?.pickupDistance;
@@ -58,6 +66,9 @@ class TripCalculatorState {
     bool? isAutoScanActive,
     double? lowThreshold,
     double? highThreshold,
+    bool? isAutoSaveEnabled,
+    List<String>? savedTrips,
+    String? languageCode,
     bool clearScanData = false,
     bool clearError = false,
   }) {
@@ -74,6 +85,9 @@ class TripCalculatorState {
       isAutoScanActive: isAutoScanActive ?? this.isAutoScanActive,
       lowThreshold: lowThreshold ?? this.lowThreshold,
       highThreshold: highThreshold ?? this.highThreshold,
+      isAutoSaveEnabled: isAutoSaveEnabled ?? this.isAutoSaveEnabled,
+      savedTrips: savedTrips ?? this.savedTrips,
+      languageCode: languageCode ?? this.languageCode,
     );
   }
 }
@@ -92,8 +106,11 @@ class TripCalculatorNotifier extends Notifier<TripCalculatorState> {
     Future.microtask(() {
       refreshAutoPopupStatus();
       refreshThresholds();
+      refreshAutoSaveStatus();
+      refreshSavedTrips();
+      refreshLanguage();
     });
-    return const TripCalculatorState();
+    return TripCalculatorState();
   }
 
   Future<void> openAutoPopupSettings() async {
@@ -128,6 +145,36 @@ class TripCalculatorNotifier extends Notifier<TripCalculatorState> {
       lowThreshold: low,
       highThreshold: high,
     );
+  }
+
+  Future<void> refreshAutoSaveStatus() async {
+    final isEnabled = await _autoScanPermissionService.isAutoSaveEnabled();
+    state = state.copyWith(isAutoSaveEnabled: isEnabled);
+  }
+
+  Future<void> setAutoSaveEnabled(bool isEnabled) async {
+    await _autoScanPermissionService.setAutoSaveEnabled(isEnabled);
+    state = state.copyWith(isAutoSaveEnabled: isEnabled);
+  }
+
+  Future<void> refreshSavedTrips() async {
+    final trips = await _autoScanPermissionService.getSavedTrips();
+    state = state.copyWith(savedTrips: trips);
+  }
+
+  Future<void> clearSavedTrips() async {
+    await _autoScanPermissionService.clearSavedTrips();
+    state = state.copyWith(savedTrips: const []);
+  }
+
+  Future<void> refreshLanguage() async {
+    final lang = await _autoScanPermissionService.getLanguage();
+    state = state.copyWith(languageCode: lang);
+  }
+
+  Future<void> setLanguage(String language) async {
+    await _autoScanPermissionService.setLanguage(language);
+    state = state.copyWith(languageCode: language);
   }
 
   Future<void> selectScreenshot() async {

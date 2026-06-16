@@ -47,6 +47,38 @@ class MainActivity : FlutterActivity() {
                         .apply()
                     result.success(null)
                 }
+                "getSavedTrips" -> {
+                    val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+                    val tripsString = prefs.getString("saved_trips_list", "") ?: ""
+                    val tripsList = if (tripsString.isEmpty()) {
+                        emptyList<String>()
+                    } else {
+                        tripsString.split("|||")
+                    }
+                    result.success(tripsList)
+                }
+                "clearSavedTrips" -> {
+                    getSharedPreferences(prefsName, MODE_PRIVATE).edit().remove("saved_trips_list").apply()
+                    result.success(null)
+                }
+                "isAutoSaveEnabled" -> {
+                    val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+                    result.success(prefs.getBoolean("auto_save_enabled", false))
+                }
+                "setAutoSaveEnabled" -> {
+                    val isEnabled = call.argument<Boolean>("isEnabled") ?: false
+                    getSharedPreferences(prefsName, MODE_PRIVATE).edit().putBoolean("auto_save_enabled", isEnabled).apply()
+                    result.success(null)
+                }
+                "getLanguage" -> {
+                    val prefs = getSharedPreferences(prefsName, MODE_PRIVATE)
+                    result.success(prefs.getString("app_language", "en") ?: "en")
+                }
+                "setLanguage" -> {
+                    val lang = call.argument<String>("language") ?: "en"
+                    getSharedPreferences(prefsName, MODE_PRIVATE).edit().putString("app_language", lang).apply()
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }
